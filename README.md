@@ -249,6 +249,10 @@ Every push runs the tests, builds the image, starts it and asks it for its tools
 | Tag such as `v1.2.3` | `1.2.3`, `1.2` and the commit hash |
 | Any other branch, pull request | nothing; build and checks only |
 
+The image is also rebuilt and published from `main` on the 1st of every month, so that it picks up
+fixes in the base image. Dependabot proposes updates for the GitHub Actions and the base image
+once a month ([`.github/dependabot.yml`](.github/dependabot.yml)).
+
 ## Limitations
 
 - InfluxDB 2.x with Flux only. InfluxDB 1.x (InfluxQL) and 3.x (SQL) are not supported.

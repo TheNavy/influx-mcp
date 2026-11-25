@@ -1,0 +1,13 @@
+# Monthly update proposals for the two places this project depends on others:
+# the actions used in the workflow and the base image in the Dockerfile.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly

@@ -55,8 +55,8 @@ You need a running InfluxDB 2.x, its organization name and an API token.
 
 ### Docker Compose
 
-The repository contains a ready-to-use [`docker-compose.yml`](docker-compose.yml). It reads its
-settings from a file named `.env`:
+The repository contains a ready-to-use [`docker-compose.yml`](docker-compose.yml). It takes its
+settings from variables, which Docker Compose reads from a file named `.env` next to it:
 
 ```bash
 cp .env.example .env
@@ -73,6 +73,13 @@ Check that it is running:
 ```bash
 curl http://localhost:5001/health
 ```
+
+### Portainer
+
+Add a stack, choose *Repository* and point it at this repository with the compose path
+`docker-compose.yml`. Under *Environment variables*, add `INFLUXDB_URL`, `INFLUXDB_TOKEN` and
+`INFLUXDB_ORG`, plus any optional variable from [Configuration](#configuration). No `.env` file is
+needed. The stack refuses to deploy and names the variable if a required one is missing.
 
 ### Docker
 

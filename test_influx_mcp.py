@@ -7,6 +7,7 @@ API call is exercised without a database.
 
 from __future__ import annotations
 
+import http.client
 import json
 import threading
 import unittest
@@ -254,8 +255,16 @@ class TransportTests(ServerTestCase):
         self.assertEqual(status, 403)
 
     def test_oversized_request(self) -> None:
-        status, _, _ = self.http("POST", "/mcp", raw=b" " * (influx_mcp.MAX_REQUEST_BYTES + 1))
-        self.assertEqual(status, 413)
+        # Only the headers are sent: the server must refuse on the announced
+        # size alone, without waiting for the body.
+        host, port = self.server.server_address[:2]
+        connection = http.client.HTTPConnection(host, port, timeout=5)
+        self.addCleanup(connection.close)
+        connection.putrequest("POST", "/mcp")
+        connection.putheader("Content-Type", "application/json")
+        connection.putheader("Content-Length", str(influx_mcp.MAX_REQUEST_BYTES + 1))
+        connection.endheaders()
+        self.assertEqual(connection.getresponse().status, 413)
 
     def test_no_auth_needed_without_token(self) -> None:
         self.assertEqual(self.rpc("ping")["result"], {})

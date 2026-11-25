@@ -1,5 +1,9 @@
-# Create a .env from .env.example first, then start with:
-#   docker compose up -d
+# Settings are taken from variables, so the same file works in two ways:
+#
+#   docker compose   create a .env from .env.example next to this file,
+#                    then run: docker compose up -d
+#   Portainer        deploy this file as a stack and enter the variables
+#                    under "Environment variables"
 services:
   influx-mcp:
     image: ghcr.io/thenavy/influx-mcp:latest
@@ -8,7 +12,14 @@ services:
     #   build: .
     container_name: influx-mcp
     restart: unless-stopped
-    env_file: .env
+    environment:
+      INFLUXDB_URL: ${INFLUXDB_URL:?INFLUXDB_URL is not set}
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN:?INFLUXDB_TOKEN is not set}
+      INFLUXDB_ORG: ${INFLUXDB_ORG:?INFLUXDB_ORG is not set}
+      INFLUXDB_TIMEOUT: ${INFLUXDB_TIMEOUT:-30}
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
+      MCP_ALLOWED_ORIGINS: ${MCP_ALLOWED_ORIGINS:-}
+      MCP_MAX_ROWS: ${MCP_MAX_ROWS:-1000}
     ports:
       # host:container. To use another port, change the left side only.
       - "5001:5001"

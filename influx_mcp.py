@@ -41,6 +41,7 @@ PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
 MAX_REQUEST_BYTES = 1_000_000  # largest accepted MCP request body
 MAX_OUTPUT_CHARS = 250_000  # largest query result returned to the client
 BUCKET_PAGE_SIZE = 100  # InfluxDB's maximum page size for /api/v2/buckets
+BUCKET_PAGE_LIMIT = 20  # stop paging after this many pages, whatever the server says
 SCHEMA_ROW_LIMIT = 5_000  # cap for measurement, field and tag listings
 
 log = logging.getLogger(SERVER_NAME)
@@ -91,6 +92,9 @@ class Config:
             raise ConfigError("INFLUXDB_URL must start with http:// or https://")
 
         max_rows = number("MCP_MAX_ROWS", "1000", int, 1)
+        port = number("MCP_PORT", "5001", int, 1)
+        if port > 65535:
+            raise ConfigError(f"MCP_PORT must be at most 65535, got {port}")
         origins = frozenset(
             item.strip().rstrip("/").lower()
             for item in env.get("MCP_ALLOWED_ORIGINS", "").split(",")
@@ -101,7 +105,7 @@ class Config:
             influx_token=required("INFLUXDB_TOKEN"),
             influx_org=required("INFLUXDB_ORG"),
             host=env.get("MCP_HOST", "").strip() or "0.0.0.0",
-            port=number("MCP_PORT", "5001", int, 1),
+            port=port,
             auth_token=env.get("MCP_AUTH_TOKEN", "").strip(),
             allowed_origins=origins,
             max_rows=max_rows,
@@ -197,9 +201,12 @@ class InfluxClient:
     def buckets(self) -> list[dict[str, Any]]:
         """All buckets the token can see, with their retention period."""
         found: list[dict[str, Any]] = []
-        offset = 0
-        while True:
-            params = {"org": self._org, "limit": BUCKET_PAGE_SIZE, "offset": offset}
+        for page_number in range(BUCKET_PAGE_LIMIT):
+            params = {
+                "org": self._org,
+                "limit": BUCKET_PAGE_SIZE,
+                "offset": page_number * BUCKET_PAGE_SIZE,
+            }
             try:
                 with self._open("GET", "/api/v2/buckets", params) as response:
                     page = json.load(response).get("buckets", [])
@@ -218,8 +225,8 @@ class InfluxClient:
                     }
                 )
             if len(page) < BUCKET_PAGE_SIZE:
-                return found
-            offset += BUCKET_PAGE_SIZE
+                break
+        return found
 
     def query(self, flux: str, max_rows: int) -> QueryResult:
         """Run a Flux query and read at most ``max_rows`` rows of the answer.
@@ -248,6 +255,10 @@ class InfluxClient:
                         current = Table(columns=cells)
                         tables.append(current)
                         continue
+                    if current.columns[:1] == ["error"]:
+                        # InfluxDB reports a failure during execution as a table
+                        # with the columns "error" and "reference".
+                        raise InfluxError(f"query failed: {cells[0] if cells else 'unknown error'}")
                     chars += sum(len(cell) + 1 for cell in cells)
                     if row_count >= max_rows or chars > MAX_OUTPUT_CHARS:
                         truncated = True
@@ -573,6 +584,7 @@ class Handler(BaseHTTPRequestHandler):
     """
 
     protocol_version = "HTTP/1.1"
+    timeout = 60  # seconds a connection may stay idle or stall before it is closed
     server_version = f"{SERVER_NAME}/{__version__}"
     sys_version = ""
 

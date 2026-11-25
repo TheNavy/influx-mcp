@@ -55,9 +55,8 @@ You need a running InfluxDB 2.x, its organization name and an API token.
 
 ### Docker Compose
 
-```bash
-cp docker-compose.example.yml docker-compose.yml
-```
+The repository contains a ready-to-use [`docker-compose.yml`](docker-compose.yml). It reads its
+settings from a file named `.env`:
 
 ```bash
 cp .env.example .env
@@ -155,8 +154,9 @@ _result,0,2025-01-01T01:00:00Z,20.4
 _result,0,2025-01-01T02:00:00Z,20.1
 ```
 
-Errors from InfluxDB, such as a Flux syntax error, are returned as the tool result with
-`isError: true`, so the assistant can read the message and correct its query.
+Errors from InfluxDB, such as a Flux syntax error or a failure while the query runs, are returned
+as the tool result with `isError: true`, so the assistant can read the message and correct its
+query.
 
 ## Configuration
 
@@ -177,6 +177,9 @@ All settings are environment variables.
 
 The server refuses to start if a required variable is missing or a value is invalid, and logs
 which one.
+
+With Docker, leave `MCP_PORT` alone and change the published port instead, for example
+`"8080:5001"` in `docker-compose.yml`.
 
 ## Security
 
@@ -236,14 +239,23 @@ Build the image locally:
 docker build -t influx-mcp .
 ```
 
-GitHub Actions runs the tests on every push and pull request. A push to `main` publishes
-`ghcr.io/thenavy/influx-mcp:latest`; a tag such as `v1.2.3` publishes `1.2.3` and `1.2`.
+The image is built by GitHub Actions ([`.github/workflows/build.yml`](.github/workflows/build.yml)).
+Every push runs the tests, builds the image, starts it and asks it for its tools. Only a push to
+`main` or a version tag publishes the result:
+
+| Event | Published tags |
+|---|---|
+| Push to `main` | `latest` and the commit hash |
+| Tag such as `v1.2.3` | `1.2.3`, `1.2` and the commit hash |
+| Any other branch, pull request | nothing; build and checks only |
 
 ## Limitations
 
 - InfluxDB 2.x with Flux only. InfluxDB 1.x (InfluxQL) and 3.x (SQL) are not supported.
 - Protocol revisions newer than `2025-11-25` are not implemented. Clients are expected to fall
   back to the `initialize` handshake.
+- The `MCP-Protocol-Version` request header is not checked.
+- Idle connections are closed after 60 seconds.
 - No TLS and no OAuth; see [Security](#security).
 - A query result is limited to `MCP_MAX_ROWS` rows and roughly 250,000 characters.
 

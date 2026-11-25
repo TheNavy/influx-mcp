@@ -383,6 +383,12 @@ class ToolTests(ServerTestCase):
         self.assertIn("compilation failed: oops", text)
         self.assertNotIn(INFLUX_TOKEN, text)
 
+    def test_error_during_execution_is_reported(self) -> None:
+        FakeInflux.query_answer = ",error,reference\r\n,runtime error: division by zero,\r\n"
+        text, is_error = self.call("query", {"flux": "x"})
+        self.assertTrue(is_error)
+        self.assertIn("division by zero", text)
+
     def test_unreachable_influx_is_reported(self) -> None:
         self.influx.shutdown()
         self.influx.server_close()
@@ -420,6 +426,7 @@ class ConfigTests(unittest.TestCase):
 
     def test_invalid_values(self) -> None:
         for name, value in (("INFLUXDB_URL", "db:8086"), ("MCP_PORT", "http"),
+                            ("MCP_PORT", "70000"),
                             ("MCP_MAX_ROWS", "0"), ("INFLUXDB_TIMEOUT", "-1")):
             with self.assertRaises(ConfigError, msg=name):
                 Config.from_env({**self.base, name: value})

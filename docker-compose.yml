@@ -1,12 +1,16 @@
-# Copy to docker-compose.yml, create a .env from .env.example, then:
+# Create a .env from .env.example first, then start with:
 #   docker compose up -d
 services:
   influx-mcp:
     image: ghcr.io/thenavy/influx-mcp:latest
+    # To build the image from this checkout instead of pulling it, replace the
+    # line above with:
+    #   build: .
     container_name: influx-mcp
     restart: unless-stopped
     env_file: .env
     ports:
+      # host:container. To use another port, change the left side only.
       - "5001:5001"
     read_only: true
     cap_drop:
